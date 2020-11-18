@@ -6,7 +6,7 @@ It uses the comparative deltadeltaCT method with efficiency correction and subse
 statistical analysis. The results are presented in a bar plot that can be deeply customized
 and downloaded as a vector image. All generated data can be downloaded after the analysis.
 
-Visit http://www.laborando.de/cuePCR to run the web-based version of cuePCR.
+Visit https://darioar.shinyapps.io/cuepcr/ to run the web-based version of cuePCR.
 
 If you prefer to run a local instance, download the whole repository and open the app.R script in R-Studio.
 Execute the last line to run the app or click the "Run App" button in the top right corner.
