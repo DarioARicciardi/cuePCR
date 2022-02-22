@@ -49,22 +49,22 @@ ui <- navbarPage(title = div(align = "center",
                                        actionButton("readfiles", "Read selected files!",
                                                     style = "width:70%;", class = "btn_std")
                                    ),#End div
-                                   div(align = "center", style = "position: fixed; bottom: 50px; width: 25%;",
-                                       p("
-                                       Did this tool make your work easier? Consider donating to help me cover the server fees and improve cuePCR.
-                                         ", style = "text-align:center; font-size:16px;padding:20px;"),
-                                   HTML('
-                                             <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_top">
-                                            <input type="hidden" name="cmd" value="_s-xclick" />
-                                            <input type="hidden" name="hosted_button_id" value="HGW3LCBLLJG6W" />
-                                            <input type="image" src="DonationButtonBlue.png" border="0" name="submit" title="PayPal - The safer, easier way to pay online!" alt="Donate with PayPal button" />
-                                            <img alt="" border="0" src="https://www.paypal.com/en_DE/i/scr/pixel.gif" width="1" height="1" />
-                                            </form>
-                                             ')),
-                                   tags$head(tags$meta(name="description", content="A free and easy to use tool for the analysis of qPCR data."),
-                                             tags$meta(name="keywords", content="qPCR,cuepcr,gui,analysis,darioar,shiny,dario,ricciardi,plotting,deltact,ct,foldchange,relative,expression"),
-                                             tags$meta(name="author", content="Dario A. Ricciardi"),
-                                             tags$meta(name="google-site-verification", content="1Lbv2yxufefT0c_kMUHQJOShU52eIKMZ9vbkYFqnxz8"))
+                                   # div(align = "center", style = "position: fixed; bottom: 50px; width: 25%;",
+                                   #     p("
+                                   #     Did this tool make your work easier? Consider donating to help me cover the server fees and improve cuePCR.
+                                   #       ", style = "text-align:center; font-size:16px;padding:20px;"),
+                                   # HTML('
+                                   #           <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_top">
+                                   #          <input type="hidden" name="cmd" value="_s-xclick" />
+                                   #          <input type="hidden" name="hosted_button_id" value="HGW3LCBLLJG6W" />
+                                   #          <input type="image" src="DonationButtonBlue.png" border="0" name="submit" title="PayPal - The safer, easier way to pay online!" alt="Donate with PayPal button" />
+                                   #          <img alt="" border="0" src="https://www.paypal.com/en_DE/i/scr/pixel.gif" width="1" height="1" />
+                                   #          </form>
+                                   #           ')),
+                                   # tags$head(tags$meta(name="description", content="A free and easy to use tool for the analysis of qPCR data."),
+                                   #           tags$meta(name="keywords", content="qPCR,cuepcr,gui,analysis,darioar,shiny,dario,ricciardi,plotting,deltact,ct,foldchange,relative,expression"),
+                                   #           tags$meta(name="author", content="Dario A. Ricciardi"),
+                                   #           tags$meta(name="google-site-verification", content="1Lbv2yxufefT0c_kMUHQJOShU52eIKMZ9vbkYFqnxz8"))
                             ),#End column1
                             column(6,
                                    tags$div(align = "center",
@@ -686,7 +686,7 @@ server <- function(input, output, session) {
     indata$dct <- indata$ct_mean - indata$ct_ref
     
     
-    #Quick Maffs!
+    #Main Calculations
     temp_indata <- data.frame()
     stat <- data.frame("group" = character(), "Target" = character(), "test" = character(), "pval" = double())
     
