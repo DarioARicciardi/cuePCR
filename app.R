@@ -668,6 +668,7 @@ server <- function(input, output, session) {
       ))}else{}
     
     #Mark references
+    print("Marking reference targets")
     for(i in unique(indata$target)){
       if(isTRUE(input[[paste0("target_", i)]]) ==  TRUE){
         indata$reference[indata$target %in% i] <- TRUE
@@ -677,12 +678,14 @@ server <- function(input, output, session) {
     }
     
     #Calculate mean reference ct per sample and write to new column
+    print("Calculating mean reference Cq per sample")
     indata_ref <- subset(indata, reference == TRUE)
     for (i in unique(indata$sample)) {
       indata$ct_ref[indata$sample %in% i] <- mean(indata_ref$ct_mean[indata_ref$sample %in% i], na.rm = TRUE)
     }
     
     #Calculate dct (ct_target - ct_reference)
+    print("Calculating dCq")
     indata$dct <- indata$ct_mean - indata$ct_ref
     
     
@@ -690,18 +693,25 @@ server <- function(input, output, session) {
     temp_indata <- data.frame()
     stat <- data.frame("group" = character(), "Target" = character(), "test" = character(), "pval" = double())
     
+    print("Starting main calculations")
+    
     for (i in 1:length(RepGroups())) {
       temp <- subset(indata, grepl(paste0("\\b",i,"\\b"), indata$group)) #Set word boundaries (\\b) for grep pattern to get the exact group number
+      temp$ddct <- 0
       temp$dctRQ <- 0
       temp$RQ <- 0
       temp$foldchange <- 0
       temp$log2fc <- 0
+      
       #Mark controls
       temp$control[temp$sample %in% RepGroups()[[i]]$Control] <- TRUE
       
+      print("Marked controls")
       
       #statistics between Control and Condition deltaCt
       tempnoref <- subset(temp, reference == FALSE)
+      
+      print("Starting stat calculations")
       
       for (t in unique(tempnoref$target)) {
         try({
@@ -733,34 +743,52 @@ server <- function(input, output, session) {
         })
       }
       
+      print("Finished stat calculations")
+      
       #Split into ctrl and condition group
       temp_ctrl <- subset(temp, control == TRUE)
       temp_cond <- subset(temp, control == FALSE)
+      
+      print("Calculating dctRQ")
       
       #Calculate dctRQ for each Target
       for (t in unique(temp_cond$target)) {
         temp_cond$dctRQ[temp_cond$target %in% t] <- mean(temp_ctrl$ct_mean[temp_ctrl$target %in% t], na.rm = TRUE) - temp_cond$ct_mean[temp_cond$target %in% t]
       }
       
+      print("Split into GOI and REF")
+      
       #Split each group into GOI and REF
       temp_GOI_cond <- subset(temp_cond, reference == FALSE)
       temp_REF_cond <- subset(temp_cond, reference == TRUE)
+      
+      print("Calculating RQ")
       
       #Calculate RQ values
       temp_GOI_cond$RQ <- temp_GOI_cond$efficiency^temp_GOI_cond$dctRQ
       temp_REF_cond$RQ <- temp_REF_cond$efficiency^temp_REF_cond$dctRQ
       
+      print("Calculating foldchange")
+      
       #Calculate ratio (foldchange)
       temp_GOI_cond$foldchange <- temp_GOI_cond$RQ / mean(temp_REF_cond$RQ, na.rm = TRUE)
       
+      print("Calculating log2 foldchange")
+      
       #Calculate log2 foldchange
       temp_GOI_cond$log2fc <- log2(temp_GOI_cond$foldchange)
+      
+      print("Inserting group number")
       
       temp_GOI_cond$group <- i
       temp_REF_cond$group <- i
       temp_ctrl$group <- i
       
+      print("rbinding results")
+      
       temp_indata <- rbind(temp_indata, temp_GOI_cond, temp_REF_cond, temp_ctrl)
+      
+      print("Finished main calculations")
     }
     
     
@@ -928,41 +956,53 @@ server <- function(input, output, session) {
     if(length(result_groups()) > 1){
       
       #Read data for manipulation and plotting
-      plotdata <- subset(result_groups(), reference == FALSE & control == FALSE)
+      if(input$plotvalue == "dct"){
+      plotdata <- subset(result_groups(), reference == FALSE)
+      }else{
+      plotdata <- subset(result_groups(), reference == FALSE & control == FALSE)  
+      }
+      
       #Rename Target column
       if(colnames(plotdata)[3] == "target"){
       colnames(plotdata)[3] <- "Target"
       }else{colnames(plotdata)[2] <- "Target"}
+      
       #sort group names according to group number instead of alphabetically
       plotdata$Group <- factor(plotdata$Group, levels = unique(plotdata$Group))
       #Summarize plotdata for errorbars
-      sumdata <- datasum(subset(plotdata, reference == FALSE & control == FALSE),
+      if(input$plotvalue == "dct"){
+      sumdata <- datasum(subset(plotdata, reference == FALSE),
                          measurevar = input$plotvalue,
-                         groupvars = c("Target", "group", "Group"))
+                         groupvars = c("Target", "sample", "group", "Group"))
+      }else{
+      sumdata <- datasum(subset(plotdata, reference == FALSE & control == FALSE),
+                        measurevar = input$plotvalue,
+                        groupvars = c("Target", "sample", "group", "Group"))
+      }
       #Build dataframe for significance indicators
       sumdata <- join(sumdata, stat(), type = "left", by = c("group", "Target"))
       sumdata$sig <- ""
       sumdata$sig[sumdata$pval <= 0.05] <- "*"
       statsum(sumdata)
       
-      #Bar plot
-      #if(input$geom == "Bar"){
-      ggplot(data = sumdata, aes(x = !!as.name(plot_x()),
-                                 y = !!as.name(input$plotvalue),
-                                 fill = !!as.name(plot_by())))+
-        geom_bar(stat = "identity", position = position_dodge(), width = input$width, color = alpha(colour = "black", alpha = contouralpha()))+
+      #Scatterplot
+      #if(input$geom == "Scatter"){
+      ggplot(data = plotdata, aes(x = Target,
+                                 y = dct,
+                                 shape = Group))+
+        geom_point(color = alpha(colour = "black", alpha = contouralpha()))+
         geom_hline(yintercept = 0, color = "black", alpha = vlinealpha())+  
         scale_fill_brewer(palette = input$palette, direction = palette_dir())+
-        geom_errorbar(aes(ymin = !!as.name(input$plotvalue)-se, ymax = !!as.name(input$plotvalue)+se),
-                      width = input$width/5,
-                      position = position_dodge(input$width), color = alpha(input$errorbarcolor, alpha = errorbaralpha()))+
-        geom_text(aes(x = !!as.name(plot_x()),
-                      y = (abs(!!as.name(input$plotvalue)) + se + 0.3) / abs(!!as.name(input$plotvalue)) * !!as.name(input$plotvalue),
-                      group = !!as.name(plot_by()),
-                      label = sig),
-                  position = position_dodge(width = input$width),
-                  color = alpha(colour = "black", alpha = sigalpha()),
-                  size = 7)+
+        # geom_errorbar(aes(ymin = !!as.name(input$plotvalue)-se, ymax = !!as.name(input$plotvalue)+se),
+        #               width = input$width/5,
+        #               position = position_dodge(input$width), color = alpha(input$errorbarcolor, alpha = errorbaralpha()))+
+        # geom_text(aes(x = !!as.name(plot_x()),
+        #               y = (abs(!!as.name(input$plotvalue)) + se + 0.3) / abs(!!as.name(input$plotvalue)) * !!as.name(input$plotvalue),
+        #               group = !!as.name(plot_by()),
+        #               label = sig),
+        #           position = position_dodge(width = input$width),
+        #           color = alpha(colour = "black", alpha = sigalpha()),
+        #           size = 7)+
         theme_minimal()+
         theme(legend.position = input$legend,
               legend.background = element_rect(fill="white", size=.5, linetype = legendbox()),
@@ -971,6 +1011,33 @@ server <- function(input, output, session) {
         ylab(y_title())+
         xlab(x_title())+
         coord_fixed(ratio = input$aspectratio)
+      
+      #Bar plot
+      #if(input$geom == "Bar"){
+      # ggplot(data = sumdata, aes(x = !!as.name(plot_x()),
+      #                            y = !!as.name(input$plotvalue),
+      #                            fill = !!as.name(plot_by())))+
+      #   geom_bar(stat = "identity", position = position_dodge(), width = input$width, color = alpha(colour = "black", alpha = contouralpha()))+
+      #   geom_hline(yintercept = 0, color = "black", alpha = vlinealpha())+  
+      #   scale_fill_brewer(palette = input$palette, direction = palette_dir())+
+      #   geom_errorbar(aes(ymin = !!as.name(input$plotvalue)-se, ymax = !!as.name(input$plotvalue)+se),
+      #                 width = input$width/5,
+      #                 position = position_dodge(input$width), color = alpha(input$errorbarcolor, alpha = errorbaralpha()))+
+      #   geom_text(aes(x = !!as.name(plot_x()),
+      #                 y = (abs(!!as.name(input$plotvalue)) + se + 0.3) / abs(!!as.name(input$plotvalue)) * !!as.name(input$plotvalue),
+      #                 group = !!as.name(plot_by()),
+      #                 label = sig),
+      #             position = position_dodge(width = input$width),
+      #             color = alpha(colour = "black", alpha = sigalpha()),
+      #             size = 7)+
+      #   theme_minimal()+
+      #   theme(legend.position = input$legend,
+      #         legend.background = element_rect(fill="white", size=.5, linetype = legendbox()),
+      #         text = element_text(size = input$textsize))+
+      #   guides(fill=guide_legend(title = legendtitle()))+
+      #   ylab(y_title())+
+      #   xlab(x_title())+
+      #   coord_fixed(ratio = input$aspectratio)
       
       #Box plot  
       # }else if(input$geom == "Boxplot"){
